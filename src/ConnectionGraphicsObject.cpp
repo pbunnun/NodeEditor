@@ -98,24 +98,25 @@ ConnectionId const &ConnectionGraphicsObject::connectionId() const
 
 QRectF ConnectionGraphicsObject::boundingRect() const
 {
-    auto points = pointsC1C2();
+    // Use the painter's stroke to compute an accurate bounding rect. This
+    // ensures any extra segments (e.g., group-boundary horizontal lines)
+    // are included in the connection's bounding box and not clipped.
+    auto &painter = nodeScene()->connectionPainter();
+    QPainterPath stroke = painter.getPainterStroke(*this);
 
-    // `normalized()` fixes inverted rects.
-    QRectF basicRect = QRectF(_out, _in).normalized();
+    QRectF rect = stroke.controlPointRect();
+    // fallback: boundingRect if controlPointRect is empty
+    if (rect.isNull())
+        rect = stroke.boundingRect();
 
-    QRectF c1c2Rect = QRectF(points.first, points.second).normalized();
-
-    QRectF commonRect = basicRect.united(c1c2Rect);
-
+    // Inflate a bit to account for point diameter / stroker width
     auto const &connectionStyle = StyleCollection::connectionStyle();
     float const diam = connectionStyle.pointDiameter();
     QPointF const cornerOffset(diam, diam);
+    rect.setTopLeft(rect.topLeft() - cornerOffset);
+    rect.setBottomRight(rect.bottomRight() + 2 * cornerOffset);
 
-    // Expand rect by port circle diameter
-    commonRect.setTopLeft(commonRect.topLeft() - cornerOffset);
-    commonRect.setBottomRight(commonRect.bottomRight() + 2 * cornerOffset);
-
-    return commonRect;
+    return rect;
 }
 
 QPainterPath ConnectionGraphicsObject::shape() const
@@ -171,12 +172,32 @@ void ConnectionGraphicsObject::move()
         }
     };
 
-    moveEnd(_connectionId, PortType::Out);
-    moveEnd(_connectionId, PortType::In);
+    // Compute the previous scene bounding rect so we can force an update of
+    // both the old and new areas. Calling prepareGeometryChange() before
+    // modifying geometry is required by QGraphicsItem contract.
+    QRectF oldSceneRect = scene() ? sceneBoundingRect() : QRectF();
 
     prepareGeometryChange();
 
-    update();
+    moveEnd(_connectionId, PortType::Out);
+    moveEnd(_connectionId, PortType::In);
+
+    // After endpoints changed, ensure both old and new areas are repainted
+    QRectF newSceneRect = scene() ? sceneBoundingRect() : QRectF();
+
+    if (scene()) {
+        // Expand the union by a padding that accounts for line width and
+        // point diameter so any stroker/halo is included in the repaint
+        auto const &connectionStyle = StyleCollection::connectionStyle();
+        double pad = connectionStyle.lineWidth() + connectionStyle.pointDiameter() + 6.0;
+
+        QRectF unionRect = oldSceneRect.united(newSceneRect);
+        unionRect.adjust(-pad, -pad, pad, pad);
+
+        scene()->update(unionRect);
+    } else {
+        update();
+    }
 }
 
 ConnectionState const &ConnectionGraphicsObject::connectionState() const
