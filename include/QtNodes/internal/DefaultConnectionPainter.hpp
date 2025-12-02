@@ -5,13 +5,14 @@
 
 #include "AbstractConnectionPainter.hpp"
 #include "Definitions.hpp"
+#include "Export.hpp"
 
 namespace QtNodes {
 
 class ConnectionGeometry;
 class ConnectionGraphicsObject;
 
-class DefaultConnectionPainter : public AbstractConnectionPainter
+class NODE_EDITOR_PUBLIC DefaultConnectionPainter : public AbstractConnectionPainter
 {
 public:
     void paint(QPainter *painter, ConnectionGraphicsObject const &cgo) const override;
