@@ -360,7 +360,7 @@ void NodeGraphicsObject::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
     //NodeGeometry geometry(_nodeId, _graphModel, nodeScene());
     AbstractNodeGeometry &geometry = nodeScene()->nodeGeometry();
 
-    if ((_graphModel.nodeFlags(_nodeId) | NodeFlag::Resizable)
+    if ((_graphModel.nodeFlags(_nodeId) & NodeFlag::Resizable) != NodeFlag::NoFlags
         && geometry.resizeHandleRect(_nodeId).contains(QPoint(pos.x(), pos.y()))) {
         setCursor(QCursor(Qt::SizeFDiagCursor));
     } else {
